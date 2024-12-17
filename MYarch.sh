@@ -96,9 +96,9 @@ echo "KEYMAP=us" > /etc/vconsole.conf
 echo "root:$PASSWORD" | chpasswd
 
 # Create user
-useradd -m -G wheel -s $USERNAME
+useradd -m $USERNAME
 echo "$USERNAME:$PASSWORD" | chpasswd
-
+usermod -aG wheel $USERNAME
 
 # Install bootloader and enable services
 pacman -S --noconfirm grub efibootmgr networkmanager sudo sof-firmware intel-ucode git wireless-tools nano
