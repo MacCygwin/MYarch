@@ -3,19 +3,19 @@
 set -e  # Exit on errors
 
 # Variables for configuration
-DISK=""
+EFI_PART=""
+ROOT_PART=""
 HOSTNAME=""
 USERNAME=""
 PASSWORD=""
 TIMEZONE=""
 LOCALE=""
-EFI_PART=""
-ROOT_PART=""
 
 # Functions for each menu option
 basic_info() {
     echo "=== Step 1: Basic Info ==="
-    read -p "Enter the disk to install Arch Linux (e.g., /dev/sda): " DISK
+    read -p "Enter the EFI partition (e.g., /dev/sda1): " EFI_PART
+    read -p "Enter the root partition (e.g., /dev/sda2): " ROOT_PART
     read -p "Enter the hostname for your system: " HOSTNAME
     read -p "Enter the username for a regular user: " USERNAME
     read -sp "Enter the password for both root and $USERNAME: " PASSWORD
@@ -24,7 +24,8 @@ basic_info() {
     read -p "Enter your locale (e.g., en_US.UTF-8): " LOCALE
 
     echo -e "\nBasic Info Collected:"
-    echo "Disk: $DISK"
+    echo "EFI Partition: $EFI_PART"
+    echo "Root Partition: $ROOT_PART"
     echo "Hostname: $HOSTNAME"
     echo "Username: $USERNAME"
     echo "Password: (hidden)"
@@ -33,82 +34,42 @@ basic_info() {
     read -p "Press Enter to return to the main menu."
 }
 
-partition_disk() {
-    echo "=== Step 2: Disk Partitioning ==="
-    if [[ -z "$DISK" ]]; then
-        echo "Disk is not set! Please configure Basic Info first."
-        read -p "Press Enter to return to the main menu."
-        return
-    fi
-
-    echo "The selected disk is: $DISK"
-    read -p "This will erase all data on $DISK. Proceed? [y/N]: " confirm
-    if [[ "$confirm" != "y" ]]; then
-        echo "Aborting partitioning. Returning to the main menu."
-        return
-    fi
-
-    echo "Partitioning the disk using fdisk..."
-    fdisk "$DISK" <<EOF
-g  # Create a new GPT partition table
-n  # Create new partition
-1  # Partition number 1 (EFI)
-   # First sector (default)
-+512M  # Size of partition (512MB)
-t  # Change partition type
-1  # Set partition type to EFI (EFI system partition)
-n  # Create new partition
-2  # Partition number 2 (root)
-   # First sector (default)
-   # Last sector (default, takes up remaining space)
-w  # Write changes and exit
-EOF
-
-    EFI_PART="${DISK}1"
-    ROOT_PART="${DISK}2"
-
-    echo "Disk partitioning complete:"
-    echo "EFI Partition: $EFI_PART"
-    echo "Root Partition: $ROOT_PART"
-    read -p "Press Enter to return to the main menu."
-}
-
 format_and_mount() {
-    echo "=== Step 3: Formatting and Mounting Partitions ==="
+    echo "=== Step 2: Formatting and Mounting Partitions ==="
     if [[ -z "$EFI_PART" || -z "$ROOT_PART" ]]; then
-        echo "Partitions are not set! Please complete Disk Partitioning first."
+        echo "Partitions are not set! Please configure Basic Info first."
         read -p "Press Enter to return to the main menu."
         return
     fi
 
     echo "Formatting partitions..."
-    mkfs.fat -F32 "$EFI_PART"
+    mkfs.fat -F 32 "$EFI_PART"
     mkfs.btrfs "$ROOT_PART"
 
     echo "Mounting partitions..."
     mount "$ROOT_PART" /mnt
     mkdir -p /mnt/boot
     mount "$EFI_PART" /mnt/boot
-    echo "Partitions mounted successfully."
+    echo "Partitions formatted and mounted successfully."
     read -p "Press Enter to return to the main menu."
 }
 
 install_base_system() {
-    echo "=== Step 4: Installing Base System ==="
+    echo "=== Step 3: Installing Base System ==="
     pacstrap /mnt base linux linux-firmware btrfs-progs
     echo "Base system installation complete."
     read -p "Press Enter to return to the main menu."
 }
 
 generate_fstab() {
-    echo "=== Step 5: Generating fstab ==="
+    echo "=== Step 4: Generating fstab ==="
     genfstab -U /mnt >> /mnt/etc/fstab
     echo "fstab generated successfully."
     read -p "Press Enter to return to the main menu."
 }
 
 system_configuration() {
-    echo "=== Step 6: System Configuration ==="
+    echo "=== Step 5: System Configuration ==="
     if [[ -z "$TIMEZONE" || -z "$LOCALE" || -z "$HOSTNAME" || -z "$USERNAME" || -z "$PASSWORD" ]]; then
         echo "System configuration details are incomplete! Please complete Basic Info first."
         read -p "Press Enter to return to the main menu."
@@ -157,23 +118,21 @@ while true; do
     clear
     echo "=== Arch Linux Installation Menu ==="
     echo "1) Basic Info"
-    echo "2) Disk Partitioning"
-    echo "3) Formatting and Mounting Partitions"
-    echo "4) Install Base System"
-    echo "5) Generate fstab"
-    echo "6) System Configuration"
-    echo "7) Exit"
+    echo "2) Formatting and Mounting Partitions"
+    echo "3) Install Base System"
+    echo "4) Generate fstab"
+    echo "5) System Configuration"
+    echo "6) Exit"
     echo "====================================="
     read -p "Choose an option: " choice
 
     case $choice in
         1) basic_info ;;
-        2) partition_disk ;;
-        3) format_and_mount ;;
-        4) install_base_system ;;
-        5) generate_fstab ;;
-        6) system_configuration ;;
-        7) echo "Exiting installation script. Goodbye!"; exit ;;
+        2) format_and_mount ;;
+        3) install_base_system ;;
+        4) generate_fstab ;;
+        5) system_configuration ;;
+        6) echo "Exiting installation script. Goodbye!"; exit ;;
         *) echo "Invalid option. Please try again."; read -p "Press Enter to continue." ;;
     esac
 done
