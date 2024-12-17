@@ -12,9 +12,10 @@ LOCALE=""
 
 # Helper Function for Input Prompts
 prompt() {
+    local response
     echo -n "$1: "
-    read -r REPLY
-    echo "$REPLY"
+    read -r response
+    echo "$response"
 }
 
 # Functions for each menu option
