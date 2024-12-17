@@ -56,7 +56,7 @@ format_and_mount() {
 
 install_base_system() {
     echo "=== Step 3: Installing Base System ==="
-    pacstrap /mnt base linux linux-firmware btrfs-progs base-devel linux-headers
+    pacstrap /mnt base linux linux-firmware btrfs-progs base-devel linux-headers grub efibootmgr networkmanager sudo sof-firmware intel-ucode git wireless-tools nano
     echo "Base system installation complete."
     read -p "Press Enter to return to the main menu."
 }
@@ -101,7 +101,6 @@ echo "$USERNAME:$PASSWORD" | chpasswd
 usermod -aG wheel $USERNAME
 
 # Install bootloader and enable services
-pacman -S --noconfirm grub efibootmgr networkmanager sudo sof-firmware intel-ucode git wireless-tools nano
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
 systemctl enable NetworkManager
