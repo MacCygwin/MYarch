@@ -9,24 +9,19 @@ USERNAME=""
 PASSWORD=""
 TIMEZONE=""
 LOCALE=""
-
-# Helper Function for Input Prompts
-prompt() {
-    local response
-    echo -n "$1: "
-    read -r response
-    echo "$response"
-}
+EFI_PART=""
+ROOT_PART=""
 
 # Functions for each menu option
 basic_info() {
     echo "=== Step 1: Basic Info ==="
-    DISK=$(prompt "Enter the disk to install Arch Linux (e.g., /dev/sda)")
-    HOSTNAME=$(prompt "Enter the hostname for your system")
-    USERNAME=$(prompt "Enter the username for a regular user")
-    PASSWORD=$(prompt "Enter the password for both root and $USERNAME")
-    TIMEZONE=$(prompt "Enter your timezone (e.g., America/New_York)")
-    LOCALE=$(prompt "Enter your locale (e.g., en_US.UTF-8)")
+    read -p "Enter the disk to install Arch Linux (e.g., /dev/sda): " DISK
+    read -p "Enter the hostname for your system: " HOSTNAME
+    read -p "Enter the username for a regular user: " USERNAME
+    read -sp "Enter the password for both root and $USERNAME: " PASSWORD
+    echo  # For a clean newline after the password prompt
+    read -p "Enter your timezone (e.g., America/New_York): " TIMEZONE
+    read -p "Enter your locale (e.g., en_US.UTF-8): " LOCALE
 
     echo -e "\nBasic Info Collected:"
     echo "Disk: $DISK"
@@ -54,7 +49,6 @@ partition_disk() {
     fi
 
     echo "Partitioning the disk using fdisk..."
-    # Using fdisk to create partitions
     fdisk "$DISK" <<EOF
 g  # Create a new GPT partition table
 n  # Create new partition
