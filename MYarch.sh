@@ -46,7 +46,7 @@ format_and_mount() {
 
 install_base_system() {
     echo "=== Step 3: Installing Base System ==="
-    pacstrap /mnt base linux linux-firmware btrfs-progs base-devel linux-headers grub efibootmgr networkmanager sudo sof-firmware intel-ucode git wireless-tools nano
+    pacstrap /mnt base linux linux-firmware btrfs-progs base-devel linux-headers grub efibootmgr networkmanager sudo sof-firmware intel-ucode git wireless_tools nano
     echo "Base system installation complete."
     read -p "Press Enter to return to the main menu."
 }
