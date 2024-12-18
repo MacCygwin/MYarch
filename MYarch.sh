@@ -2,71 +2,59 @@
 
 set -e  # Exit on errors
 
-# Variables for configuration
-EFI_PART="/dev/sda1"  # Predefined EFI partition
-ROOT_PART="/dev/sda2" # Predefined root partition
-HOSTNAME=""
-USERNAME=""
-PASSWORD=""
-TIMEZONE="Asia/Singapore"  # Predefined timezone
-LOCALE="en_SG.UTF-8"       # Predefined locale
+# Check if the system is booted in UEFI mode
+if [[ ! -d /sys/firmware/efi/efivars ]]; then
+    echo "Error: This system is not booted in UEFI mode. Exiting."
+    exit 1
+fi
 
-# Functions for each menu option
-basic_info() {
-    echo "=== Step 1: Basic Info ==="
-    read -p "Enter the hostname for your system: " HOSTNAME
-    read -p "Enter the username for a regular user: " USERNAME
-    read -sp "Enter the password for both root and $USERNAME: " PASSWORD
-    echo  # For a clean newline after the password prompt
+# Predefined partitions
+EFI_PART="/dev/sda1"
+ROOT_PART="/dev/sda2"
 
-    echo -e "\nBasic Info Collected:"
-    echo "Hostname: $HOSTNAME"
-    echo "Username: $USERNAME"
-    echo "Password: (hidden)"
-    read -p "Press Enter to return to the main menu."
-}
+# Predefined system configurations
+HOSTNAME="archyo"
+USERNAME="mycros"
+TIMEZONE="Asia/Singapore"
+LOCALE="en_SG.UTF-8"
 
-format_and_mount() {
-    echo "=== Step 2: Formatting and Mounting Partitions ==="
-    echo "Using predefined partitions:"
-    echo "EFI Partition: $EFI_PART"
-    echo "Root Partition: $ROOT_PART"
+# Prompt for password
+echo "Enter the password to use for both root and the user account:"
+read -sp "Password: " PASSWORD
+echo
+read -sp "Confirm Password: " PASSWORD_CONFIRM
+echo
 
-    echo "Formatting partitions..."
-    mkfs.fat -F 32 "$EFI_PART"
-    mkfs.btrfs "$ROOT_PART"
+if [[ "$PASSWORD" != "$PASSWORD_CONFIRM" ]]; then
+    echo "Passwords do not match. Exiting."
+    exit 1
+fi
 
-    echo "Mounting partitions..."
-    mount "$ROOT_PART" /mnt
-    mkdir -p /mnt/boot
-    mount "$EFI_PART" /mnt/boot
-    echo "Partitions formatted and mounted successfully."
-    read -p "Press Enter to return to the main menu."
-}
+# Step 1: Format and Mount Partitions
+echo "=== Step 1: Formatting and Mounting Partitions ==="
+echo "Formatting partitions..."
+mkfs.fat -F32 "$EFI_PART"
+mkfs.ext4 "$ROOT_PART"
 
-install_base_system() {
-    echo "=== Step 3: Installing Base System ==="
-    pacstrap /mnt base linux linux-firmware btrfs-progs base-devel linux-headers grub efibootmgr networkmanager sudo sof-firmware intel-ucode git wireless_tools nano
-    echo "Base system installation complete."
-    read -p "Press Enter to return to the main menu."
-}
+echo "Mounting partitions..."
+mount "$ROOT_PART" /mnt
+mkdir -p /mnt/boot
+mount "$EFI_PART" /mnt/boot
+echo "Partitions formatted and mounted successfully."
 
-generate_fstab() {
-    echo "=== Step 4: Generating fstab ==="
-    genfstab -U /mnt >> /mnt/etc/fstab
-    echo "fstab generated successfully."
-    read -p "Press Enter to return to the main menu."
-}
+# Step 2: Install Base System
+echo "=== Step 2: Installing Base System ==="
+pacstrap /mnt base linux linux-firmware base-devel linux-headers grub efibootmgr networkmanager sudo sof-firmware intel-ucode git wireless-tools nano
+echo "Base system installation complete."
 
-system_configuration() {
-    echo "=== Step 5: System Configuration ==="
-    if [[ -z "$HOSTNAME" || -z "$USERNAME" || -z "$PASSWORD" ]]; then
-        echo "System configuration details are incomplete! Please complete Basic Info first."
-        read -p "Press Enter to return to the main menu."
-        return
-    fi
+# Step 3: Generate fstab
+echo "=== Step 3: Generating fstab ==="
+genfstab -U /mnt >> /mnt/etc/fstab
+echo "fstab generated successfully."
 
-    arch-chroot /mnt /bin/bash <<EOF
+# Step 4: Configure the System
+echo "=== Step 4: Configuring the System ==="
+arch-chroot /mnt /bin/bash <<EOF
 # Set timezone
 ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
 hwclock --systohc
@@ -90,29 +78,51 @@ useradd -m $USERNAME
 echo "$USERNAME:$PASSWORD" | chpasswd
 usermod -aG wheel $USERNAME
 
-# Install bootloader and enable services
+# Install bootloader
+echo "Installing bootloader..."
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
+
+# Enable essential services
+echo "Enabling services..."
 systemctl enable NetworkManager
 
 # Allow users in the wheel group to execute sudo commands
 sed -i 's/^# \(%wheel ALL=(ALL:ALL) ALL\)/\1/' /etc/sudoers
 EOF
 
-    echo "System configuration complete."
-    read -p "Press Enter to return to the main menu."
-}
+echo "System configuration complete."
 
-install_desktop_environment() {
-    echo "=== Step 6: Desktop Environment Installation ==="
-    echo "Choose a desktop environment or skip:"
-    echo "1) GNOME"
-    echo "2) KDE Plasma"
-    echo "3) XFCE"
-    echo "4) Skip"
-    read -p "Enter your choice: " de_choice
+# Step 5: Configure ZRAM
+echo "=== Step 5: Configuring ZRAM ==="
+arch-chroot /mnt /bin/bash <<EOF
+# Install zram-generator
+pacman -S --noconfirm zram-generator
 
-    arch-chroot /mnt /bin/bash <<EOF
+# Configure zram
+cat <<ZRAM_CONF > /etc/systemd/zram-generator.conf
+[zram0]
+zram-size = ram / 2
+compression-algorithm = zstd
+ZRAM_CONF
+
+# Enable zram service
+echo "Enabling ZRAM..."
+systemctl enable systemd-zram-setup@zram0.service
+EOF
+
+echo "ZRAM configuration complete."
+
+# Step 6: Install Desktop Environment (Optional)
+echo "=== Step 6: Desktop Environment Installation ==="
+echo "Choose a desktop environment to install:"
+echo "1) GNOME"
+echo "2) KDE Plasma"
+echo "3) XFCE"
+echo "4) None (Skip)"
+read -p "Enter your choice [1-4]: " de_choice
+
+arch-chroot /mnt /bin/bash <<EOF
 case $de_choice in
     1)
         echo "Installing GNOME..."
@@ -138,32 +148,11 @@ case $de_choice in
 esac
 EOF
 
-    echo "Desktop environment installation complete (if chosen)."
-    read -p "Press Enter to return to the main menu."
-}
+echo "Desktop environment installation (if chosen) complete."
 
-# Main Menu
-while true; do
-    clear
-    echo "=== Arch Linux Installation Menu ==="
-    echo "1) Basic Info"
-    echo "2) Formatting and Mounting Partitions"
-    echo "3) Install Base System"
-    echo "4) Generate fstab"
-    echo "5) System Configuration"
-    echo "6) Desktop Environment Installation"
-    echo "7) Exit"
-    echo "====================================="
-    read -p "Choose an option: " choice
-
-    case $choice in
-        1) basic_info ;;
-        2) format_and_mount ;;
-        3) install_base_system ;;
-        4) generate_fstab ;;
-        5) system_configuration ;;
-        6) install_desktop_environment ;;
-        7) echo "Exiting installation script. Goodbye!"; exit ;;
-        *) echo "Invalid option. Please try again."; read -p "Press Enter to continue." ;;
-    esac
-done
+# Step 7: Final Instructions
+echo "=== Installation Complete ==="
+echo "You can now reboot into your new system."
+echo "Unmounting partitions..."
+umount -R /mnt
+echo "Reboot the system with: reboot"
