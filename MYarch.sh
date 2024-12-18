@@ -86,7 +86,7 @@ usermod -aG wheel $USERNAME
 
 # Install bootloader
 echo "Installing bootloader..."
-grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
+grub-install /dev/sda
 grub-mkconfig -o /boot/grub/grub.cfg
 
 # Enable essential services
