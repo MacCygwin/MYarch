@@ -30,6 +30,12 @@ if [[ "$PASSWORD" != "$PASSWORD_CONFIRM" ]]; then
     exit 1
 fi
 
+# Ensure partitions are set correctly
+if [[ -z "$EFI_PART" || -z "$ROOT_PART" ]]; then
+    echo "Error: Partitions are not configured correctly. Exiting."
+    exit 1
+fi
+
 # Step 1: Format and Mount Partitions
 echo "=== Step 1: Formatting and Mounting Partitions ==="
 echo "Formatting partitions..."
@@ -38,8 +44,8 @@ mkfs.ext4 "$ROOT_PART"
 
 echo "Mounting partitions..."
 mount "$ROOT_PART" /mnt
-mkdir -p /mnt/boot
-mount "$EFI_PART" /mnt/boot
+mkdir -p /mnt/boot/efi
+mount "$EFI_PART" /mnt/boot/efi
 echo "Partitions formatted and mounted successfully."
 
 # Step 2: Install Base System
@@ -80,7 +86,7 @@ usermod -aG wheel $USERNAME
 
 # Install bootloader
 echo "Installing bootloader..."
-grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
 grub-mkconfig -o /boot/grub/grub.cfg
 
 # Enable essential services
@@ -113,46 +119,8 @@ EOF
 
 echo "ZRAM configuration complete."
 
-# Step 6: Install Desktop Environment (Optional)
-echo "=== Step 6: Desktop Environment Installation ==="
-echo "Choose a desktop environment to install:"
-echo "1) GNOME"
-echo "2) KDE Plasma"
-echo "3) XFCE"
-echo "4) None (Skip)"
-read -p "Enter your choice [1-4]: " de_choice
-
-arch-chroot /mnt /bin/bash <<EOF
-case $de_choice in
-    1)
-        echo "Installing GNOME..."
-        pacman -S --noconfirm gnome gnome-extra gdm
-        systemctl enable gdm
-        ;;
-    2)
-        echo "Installing KDE Plasma..."
-        pacman -S --noconfirm plasma plasma-meta kde-applications sddm
-        systemctl enable sddm
-        ;;
-    3)
-        echo "Installing XFCE..."
-        pacman -S --noconfirm xfce4 xfce4-goodies lightdm lightdm-gtk-greeter
-        systemctl enable lightdm
-        ;;
-    4)
-        echo "Skipping desktop environment installation."
-        ;;
-    *)
-        echo "Invalid option. No desktop environment will be installed."
-        ;;
-esac
-EOF
-
-echo "Desktop environment installation (if chosen) complete."
-
-# Step 7: Final Instructions
+# Step 6: Final Instructions
 echo "=== Installation Complete ==="
-echo "You can now reboot into your new system."
 echo "Unmounting partitions..."
 umount -R /mnt
 echo "Reboot the system with: reboot"
