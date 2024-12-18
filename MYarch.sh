@@ -39,7 +39,7 @@ fi
 # Step 1: Format and Mount Partitions
 echo "=== Step 1: Formatting and Mounting Partitions ==="
 echo "Formatting partitions..."
-mkfs.fat -F32 "$EFI_PART"
+mkfs.fat -F 32 "$EFI_PART"
 mkfs.ext4 "$ROOT_PART"
 
 echo "Mounting partitions..."
