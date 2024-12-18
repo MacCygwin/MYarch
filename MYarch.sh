@@ -3,13 +3,13 @@
 set -e  # Exit on errors
 
 # Variables for configuration
-EFI_PART="/dev/sda1"
-ROOT_PART="/dev/sda2"
+EFI_PART="/dev/sda1"  # Predefined EFI partition
+ROOT_PART="/dev/sda2" # Predefined root partition
 HOSTNAME=""
 USERNAME=""
 PASSWORD=""
-TIMEZONE="Asia/Singapore"
-LOCALE="en_SG.UTF-8"
+TIMEZONE="Asia/Singapore"  # Predefined timezone
+LOCALE="en_SG.UTF-8"       # Predefined locale
 
 # Functions for each menu option
 basic_info() {
@@ -28,11 +28,9 @@ basic_info() {
 
 format_and_mount() {
     echo "=== Step 2: Formatting and Mounting Partitions ==="
-    if [[ -z "$EFI_PART" || -z "$ROOT_PART" ]]; then
-        echo "Partitions are not set! Please configure Basic Info first."
-        read -p "Press Enter to return to the main menu."
-        return
-    fi
+    echo "Using predefined partitions:"
+    echo "EFI Partition: $EFI_PART"
+    echo "Root Partition: $ROOT_PART"
 
     echo "Formatting partitions..."
     mkfs.fat -F 32 "$EFI_PART"
@@ -62,7 +60,7 @@ generate_fstab() {
 
 system_configuration() {
     echo "=== Step 5: System Configuration ==="
-    if [[ -z "$TIMEZONE" || -z "$LOCALE" || -z "$HOSTNAME" || -z "$USERNAME" || -z "$PASSWORD" ]]; then
+    if [[ -z "$HOSTNAME" || -z "$USERNAME" || -z "$PASSWORD" ]]; then
         echo "System configuration details are incomplete! Please complete Basic Info first."
         read -p "Press Enter to return to the main menu."
         return
@@ -105,6 +103,45 @@ EOF
     read -p "Press Enter to return to the main menu."
 }
 
+install_desktop_environment() {
+    echo "=== Step 6: Desktop Environment Installation ==="
+    echo "Choose a desktop environment or skip:"
+    echo "1) GNOME"
+    echo "2) KDE Plasma"
+    echo "3) XFCE"
+    echo "4) Skip"
+    read -p "Enter your choice: " de_choice
+
+    arch-chroot /mnt /bin/bash <<EOF
+case $de_choice in
+    1)
+        echo "Installing GNOME..."
+        pacman -S --noconfirm gnome gnome-extra gdm
+        systemctl enable gdm
+        ;;
+    2)
+        echo "Installing KDE Plasma..."
+        pacman -S --noconfirm plasma plasma-meta kde-applications sddm
+        systemctl enable sddm
+        ;;
+    3)
+        echo "Installing XFCE..."
+        pacman -S --noconfirm xfce4 xfce4-goodies lightdm lightdm-gtk-greeter
+        systemctl enable lightdm
+        ;;
+    4)
+        echo "Skipping desktop environment installation."
+        ;;
+    *)
+        echo "Invalid option. No desktop environment will be installed."
+        ;;
+esac
+EOF
+
+    echo "Desktop environment installation complete (if chosen)."
+    read -p "Press Enter to return to the main menu."
+}
+
 # Main Menu
 while true; do
     clear
@@ -114,7 +151,8 @@ while true; do
     echo "3) Install Base System"
     echo "4) Generate fstab"
     echo "5) System Configuration"
-    echo "6) Exit"
+    echo "6) Desktop Environment Installation"
+    echo "7) Exit"
     echo "====================================="
     read -p "Choose an option: " choice
 
@@ -124,7 +162,8 @@ while true; do
         3) install_base_system ;;
         4) generate_fstab ;;
         5) system_configuration ;;
-        6) echo "Exiting installation script. Goodbye!"; exit ;;
+        6) install_desktop_environment ;;
+        7) echo "Exiting installation script. Goodbye!"; exit ;;
         *) echo "Invalid option. Please try again."; read -p "Press Enter to continue." ;;
     esac
 done
