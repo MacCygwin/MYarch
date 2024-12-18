@@ -3,34 +3,26 @@
 set -e  # Exit on errors
 
 # Variables for configuration
-EFI_PART=""
-ROOT_PART=""
+EFI_PART="/dev/sda1"
+ROOT_PART="/dev/sda2"
 HOSTNAME=""
 USERNAME=""
 PASSWORD=""
-TIMEZONE=""
-LOCALE=""
+TIMEZONE="Asia/Singapore"
+LOCALE="en_SG.UTF-8"
 
 # Functions for each menu option
 basic_info() {
     echo "=== Step 1: Basic Info ==="
-    read -p "Enter the EFI partition (e.g., /dev/sda1): " EFI_PART
-    read -p "Enter the root partition (e.g., /dev/sda2): " ROOT_PART
     read -p "Enter the hostname for your system: " HOSTNAME
     read -p "Enter the username for a regular user: " USERNAME
     read -sp "Enter the password for both root and $USERNAME: " PASSWORD
     echo  # For a clean newline after the password prompt
-    read -p "Enter your timezone (e.g., America/New_York): " TIMEZONE
-    read -p "Enter your locale (e.g., en_US.UTF-8): " LOCALE
 
     echo -e "\nBasic Info Collected:"
-    echo "EFI Partition: $EFI_PART"
-    echo "Root Partition: $ROOT_PART"
     echo "Hostname: $HOSTNAME"
     echo "Username: $USERNAME"
     echo "Password: (hidden)"
-    echo "Timezone: $TIMEZONE"
-    echo "Locale: $LOCALE"
     read -p "Press Enter to return to the main menu."
 }
 
