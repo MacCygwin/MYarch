@@ -50,7 +50,7 @@ echo "Partitions formatted and mounted successfully."
 
 # Step 2: Install Base System
 echo "=== Step 2: Installing Base System ==="
-pacstrap /mnt base linux linux-firmware base-devel linux-headers grub efibootmgr networkmanager sudo sof-firmware intel-ucode git wireless_tools nano
+pacstrap /mnt base linux linux-firmware base-devel linux-headers grub efibootmgr networkmanager sudo sof-firmware intel-ucode amd-ucode git wireless_tools nano
 echo "Base system installation complete."
 
 # Step 3: Generate fstab
