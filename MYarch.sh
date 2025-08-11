@@ -1,24 +1,38 @@
 #!/usr/bin/env bash
 
-set -e  # Exit on errors
+set -e
 
-# Check if the system is booted in UEFI mode
+# Check if booted in UEFI mode
 if [[ ! -d /sys/firmware/efi/efivars ]]; then
-    echo "Error: This system is not booted in UEFI mode. Exiting."
+    echo "Error: Not booted in UEFI mode. Exiting."
+    exit 1
+fi
+
+# Show disks for user to choose
+echo "Available disks:"
+lsblk -d -o NAME,SIZE,MODEL
+
+# Prompt for target disk (e.g. sda, nvme0n1)
+read -rp "Enter the disk to partition (e.g. sda): " DISK
+
+DISK_PATH="/dev/$DISK"
+
+if [[ ! -b "$DISK_PATH" ]]; then
+    echo "Disk $DISK_PATH does not exist. Exiting."
     exit 1
 fi
 
 # Step 1: Interactive partitioning
-echo "Starting interactive partitioning with cfdisk."
+echo "Starting interactive partitioning with cfdisk on $DISK_PATH."
 echo "Make sure to create at least an EFI partition (type EFI System) and a root partition."
-echo "Press Enter to launch cfdisk on /dev/sda."
+echo "Press Enter to launch cfdisk."
 read -r
 
-cfdisk /dev/sda
+cfdisk "$DISK_PATH"
 
 # After partitioning, ask user to enter partition names
-read -rp "Enter EFI partition (e.g. /dev/sda1): " EFI_PART
-read -rp "Enter root partition (e.g. /dev/sda2): " ROOT_PART
+read -rp "Enter EFI partition (e.g. ${DISK_PATH}1): " EFI_PART
+read -rp "Enter root partition (e.g. ${DISK_PATH}2): " ROOT_PART
 
 # Validate partitions exist
 if [[ ! -b "$EFI_PART" || ! -b "$ROOT_PART" ]]; then
@@ -94,7 +108,7 @@ usermod -aG wheel $USERNAME
 
 # Install bootloader
 echo "Installing bootloader..."
-grub-install /dev/sda
+grub-install "$DISK_PATH"
 grub-mkconfig -o /boot/grub/grub.cfg
 
 # Enable essential services
