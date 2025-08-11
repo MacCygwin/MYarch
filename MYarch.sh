@@ -8,9 +8,23 @@ if [[ ! -d /sys/firmware/efi/efivars ]]; then
     exit 1
 fi
 
-# Predefined partitions
-EFI_PART="/dev/sda1"
-ROOT_PART="/dev/sda2"
+# Step 1: Interactive partitioning
+echo "Starting interactive partitioning with cfdisk."
+echo "Make sure to create at least an EFI partition (type EFI System) and a root partition."
+echo "Press Enter to launch cfdisk on /dev/sda."
+read -r
+
+cfdisk /dev/sda
+
+# After partitioning, ask user to enter partition names
+read -rp "Enter EFI partition (e.g. /dev/sda1): " EFI_PART
+read -rp "Enter root partition (e.g. /dev/sda2): " ROOT_PART
+
+# Validate partitions exist
+if [[ ! -b "$EFI_PART" || ! -b "$ROOT_PART" ]]; then
+    echo "One or both partitions do not exist. Exiting."
+    exit 1
+fi
 
 # Predefined system configurations
 HOSTNAME="archyo"
@@ -30,14 +44,8 @@ if [[ "$PASSWORD" != "$PASSWORD_CONFIRM" ]]; then
     exit 1
 fi
 
-# Ensure partitions are set correctly
-if [[ -z "$EFI_PART" || -z "$ROOT_PART" ]]; then
-    echo "Error: Partitions are not configured correctly. Exiting."
-    exit 1
-fi
-
-# Step 1: Format and Mount Partitions
-echo "=== Step 1: Formatting and Mounting Partitions ==="
+# Step 2: Format and Mount Partitions
+echo "=== Step 2: Formatting and Mounting Partitions ==="
 echo "Formatting partitions..."
 mkfs.fat -F 32 "$EFI_PART"
 mkfs.ext4 "$ROOT_PART"
@@ -48,18 +56,18 @@ mkdir -p /mnt/boot/efi
 mount "$EFI_PART" /mnt/boot/efi
 echo "Partitions formatted and mounted successfully."
 
-# Step 2: Install Base System
-echo "=== Step 2: Installing Base System ==="
-pacstrap /mnt base linux linux-firmware base-devel linux-headers grub efibootmgr networkmanager sudo sof-firmware intel-ucode amd-ucode git wireless_tools nano
+# Step 3: Install Base System
+echo "=== Step 3: Installing Base System ==="
+pacstrap /mnt base linux linux-firmware base-devel linux-headers grub efibootmgr networkmanager sudo sof-firmware intel-ucode amd-ucode git wireless_tools nano zram-generator
 echo "Base system installation complete."
 
-# Step 3: Generate fstab
-echo "=== Step 3: Generating fstab ==="
+# Step 4: Generate fstab
+echo "=== Step 4: Generating fstab ==="
 genfstab -U /mnt >> /mnt/etc/fstab
 echo "fstab generated successfully."
 
-# Step 4: Configure the System
-echo "=== Step 4: Configuring the System ==="
+# Step 5: Configure the System
+echo "=== Step 5: Configuring the System ==="
 arch-chroot /mnt /bin/bash <<EOF
 # Set timezone
 ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
@@ -99,28 +107,22 @@ EOF
 
 echo "System configuration complete."
 
-# Step 5: Configure ZRAM
-echo "=== Step 5: Configuring ZRAM ==="
+# Step 6: Configure ZRAM
+echo "=== Step 6: Configuring ZRAM ==="
 arch-chroot /mnt /bin/bash <<EOF
-# Install zram-generator
-pacman -S --noconfirm zram-generator
-
-# Configure zram
 cat <<ZRAM_CONF > /etc/systemd/zram-generator.conf
 [zram0]
 zram-size = ram / 2
 compression-algorithm = zstd
 ZRAM_CONF
 
-# Enable zram service
-echo "Enabling ZRAM..."
 systemctl enable systemd-zram-setup@zram0.service
 EOF
 
 echo "ZRAM configuration complete."
 
-# Step 6: Final Instructions
+# Step 7: Final Instructions
 echo "=== Installation Complete ==="
 echo "Unmounting partitions..."
 umount -R /mnt
-echo "Reboot the system with: reboot"
+echo "You can now reboot the system with: reboot"
